@@ -10,12 +10,12 @@ dias_missao: 180
 # Média populacional e variação ENTRE tripulantes (cada um sorteia o próprio normal)
 # e variação diária DENTRO do tripulante.
 sinais:
-  sono_horas:      {media: 6.0,  entre: 0.5,  diario: 0.6,  min: 2,   max: 10}   # Barger et al. 2014 (Lancet Neurol.): ~6 h/noite em voo
-  sono_eficiencia: {media: 0.85, entre: 0.04, diario: 0.05, min: 0.4, max: 1}    # CALIBRAR
-  hrv_rmssd:       {media: 40,   entre: 10,   diario: 6,    min: 8,   max: 120}  # ms — CALIBRAR
-  fc_repouso:      {media: 62,   entre: 6,    diario: 3,    min: 40,  max: 110}  # bpm — CALIBRAR
-  spo2:            {media: 97.5, entre: 0.5,  diario: 0.6,  min: 88,  max: 100}  # % — CALIBRAR
-  pvt_ms:          {media: 280,  entre: 25,   diario: 18,   min: 180, max: 700}  # ms — CALIBRAR (PVT de 3 min)
+  sono_horas:      {media: 6.0,  entre: 0.5,  diario: 0.6,  min: 2,   max: 10}   # Barger et al. 2014 (Lancet Neurol.): 6,09 h/noite na ISS (21 astronautas, actigrafia)
+  sono_eficiencia: {media: 0.88, entre: 0.05, diario: 0.05, min: 0.4, max: 1}    # NASA/Flynn-Evans (actigrafia ISS longa duração): 87-91% ± 5-6
+  hrv_rmssd:       {media: 40,   entre: 10,   diario: 6,    min: 8,   max: 120}  # ms — Nunan et al. 2010 (adultos saudáveis, ~42 ms) via fonte secundária: CONFERIR texto completo
+  fc_repouso:      {media: 56,   entre: 6,    diario: 3,    min: 40,  max: 110}  # bpm — Otsuka et al. (Holter, n=7): FC noturna ~55 bpm em solo e em voo
+  spo2:            {media: 97.5, entre: 0.5,  diario: 0.6,  min: 88,  max: 100}  # % — faixa clínica normal 95-100; CALIBRAR com dado de voo
+  pvt_ms:          {media: 280,  entre: 25,   diario: 18,   min: 180, max: 700}  # ms — CALIBRAR (PVT-B de 3 min, Basner et al. 2011: lapso = RT > 355 ms)
   atividade_min:   {media: 120,  entre: 15,   diario: 20,   min: 0,   max: 240}  # ISS: ~2 h/dia de exercício previstas
   humor:           {media: 3.8,  entre: 0.4,  diario: 0.6,  min: 1,   max: 5}    # escala 1-5 (diário do bichinho)
   energia:         {media: 3.7,  entre: 0.4,  diario: 0.6,  min: 1,   max: 5}
@@ -41,4 +41,6 @@ deteccao:
   z_moderado: -2.0        # alerta: recomenda falar com equipe/tripulação
   z_grave: -3.0           # protocolo combinado antes da missão
   dias_persistencia: 2    # dias seguidos no nível (somado à suavização, ~4 dias de sinal)
+  dias_saida: 2           # histerese: só baixa de nível depois de 2 dias seguidos abaixo dele
+  sem_grave_sozinho: [cognitivo]  # índice de 1 sinal só (PVT) não aciona grave sem outro índice confirmar
   min_indices: 2          # 2 índices em nível leve juntos também contam como moderado

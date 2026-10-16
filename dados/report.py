@@ -14,18 +14,18 @@ import detect
 import features
 
 
-def relatorio(g, dia):
+def relatorio(g, dia, cfg):
     hist = g[(g.dia >= 0) & (g.dia <= dia)]
     hoje = hist.iloc[-1]
     nivel = int(hoje["nivel"])
     alertas = []
     if nivel > 0:
-        tipo = detect.tipo_alerta(hoje)
+        tipo = detect.tipo_alerta(hoje, cfg)
         alertas.append({
             "tipo": tipo,
             "gravidade": detect.NIVEL[nivel],
             "dias_persistente": int(hoje["dias_seguidos"]),
-            "sinais": [s for idx in detect.INDICES.values() for s in idx if hoje[f"z_{s}"] < -1],
+            "sinais": detect.sinais_alterados(hoje),
             "explicacao": detect.explicar(hoje),
             "acao_sugerida": detect.ACOES[(tipo, nivel)],
         })
@@ -64,7 +64,7 @@ def main():
 
     dia = args.dia if args.dia is not None else int(res.dia.max())
     for tid, g in res.groupby("tripulante_id"):
-        rel = relatorio(g.sort_values("dia"), dia)
+        rel = relatorio(g.sort_values("dia"), dia, params["deteccao"])
         (out / f"relatorio_{tid}.json").write_text(
             json.dumps(rel, ensure_ascii=False, indent=2), encoding="utf-8")
         print(f"{tid} dia {dia}: {rel['status']}"
