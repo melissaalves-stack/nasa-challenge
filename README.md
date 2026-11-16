@@ -9,7 +9,7 @@ Team Pindorama · NASA Space Apps Challenge 2026 · Challenge: *Create Health Mo
 | | |
 |---|---|
 | **Live prototype** | [Prototype](https://nasa-challenge-five-rho.vercel.app) |
-| **30-second demo** | [ [AstroKatu demo](https://youtu.be/P_3E3ZMBsng) ] |
+| **30-second demo** | [AstroKatu demo](https://youtu.be/P_3E3ZMBsng) |
 | **Backend** | [`backend/`](backend/README.md) |
 | **Data pipeline and NASA data** | [`dados/`](dados/README.md) |
 | **Research** | [`docs/research/`](docs/research) |
