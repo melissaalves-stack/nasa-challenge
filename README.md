@@ -9,7 +9,7 @@ Team Pindorama · NASA Space Apps Challenge 2026 · Challenge: *Create Health Mo
 | | |
 |---|---|
 | **Live prototype** | LINK_VERCEL_AQUI |
-| **30-second demo** | [`[media/AstroKatu_demo_30s.mp4](https://youtu.be/P_3E3ZMBsng)`] |
+| **30-second demo** | [ [media/AstroKatu_demo_30s.mp4](https://youtu.be/P_3E3ZMBsng) ] |
 | **Backend** | [`backend/`](backend/README.md) |
 | **Data pipeline and NASA data** | [`dados/`](dados/README.md) |
 | **Research** | [`docs/research/`](docs/research) |
