@@ -1,0 +1,523 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AstroKatu</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@200;300;500;600&display=swap">
+<style>
+  /* Layout: mission console, black with thin white type to match the team's film. Header + simulator strip, then a two-column working area (companion + check-in | trends + alerts). Single dark look by design: it runs in a spacecraft cabin and matches the pitch video. */
+  :root {
+    --bg: #000000; --panel: #000000; --panel2: #0A0A0B; --line: #2A2A2E;
+    --fg: #F5F5F5; --dim: #9C9CA4; --faint: #5A5A62;
+    --amber: #F2B544; --cyan: #FFFFFF; --red: #FF6B5E; --green: #F5F5F5;
+    --display: 'Exo 2', 'Helvetica Neue', Arial, sans-serif;
+    --body: 'Exo 2', 'Helvetica Neue', Arial, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 15px; font-weight: 300; line-height: 1.5; margin: 0;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 48px; }
+  .wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+  h1, h2, h3, p { margin: 0; }
+  button { font-family: inherit; font-size: 14px; color: var(--fg); cursor: pointer; }
+  button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, a:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+  header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding-block: 18px 0; }
+  .logo { font-family: var(--display); font-weight: 300; font-size: 22px; letter-spacing: 9px; }
+  .logo span { font-weight: 600; }
+  .tele { display: flex; flex-wrap: wrap; gap: 6px 18px; color: var(--dim); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .tele b { color: var(--fg); font-weight: 500; }
+  .tele .link b { color: var(--amber); }
+  nav { margin-left: auto; display: flex; gap: 4px; }
+  nav a { color: var(--dim); text-decoration: none; padding: 7px 14px; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+  nav a.on { color: var(--fg); box-shadow: inset 0 -1px 0 var(--fg); }
+
+  .sim { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; border: 1px dashed var(--line); border-radius: 2px; padding: 10px 14px; }
+  .sim .tag { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); font-weight: 500; }
+  .sim select { background: var(--panel); color: var(--fg); border: 1px solid var(--line); border-radius: 2px; padding: 7px 10px; font-family: inherit; font-size: 14px; max-width: 100%; }
+  .sim .desc { color: var(--dim); font-size: 13px; flex: 1 1 220px; min-width: 0; }
+  .btn { background: transparent; border: 1px solid var(--faint); border-radius: 2px; padding: 8px 16px; font-weight: 500; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; }
+  .btn:hover { border-color: var(--fg); }
+  .btn.primary { background: var(--fg); border-color: var(--fg); color: #000; font-weight: 600; }
+  .btn.ghost { background: transparent; }
+  .btn:disabled { opacity: .45; cursor: default; }
+
+  .cols { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: 18px; align-items: start; }
+  .stack { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 2px; padding: 18px; min-width: 0; }
+  .eyebrow { font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; color: var(--dim); font-weight: 500; margin-bottom: 14px; }
+  h2 { font-family: var(--display); font-weight: 200; font-size: 30px; line-height: 1.2; color: var(--fg); text-wrap: balance; }
+  .muted { color: var(--dim); font-size: 13px; }
+
+  /* Companion */
+  .katu-card { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+  .katu { width: 170px; height: 170px; }
+  .katu .float { animation: bob 4s ease-in-out infinite; transform-origin: center; }
+  .katu .eyes { animation: blink 5s infinite; transform-origin: 100px 104px; }
+  .katu .tip { animation: pulse 2s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-6px); } }
+  @keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 97% { transform: scaleY(.1); } }
+  @keyframes pulse { 50% { opacity: .35; } }
+  @media (prefers-reduced-motion: reduce) { .katu .float, .katu .eyes, .katu .tip { animation: none; } }
+  .bubble { padding: 4px 8px; font-size: 18px; font-weight: 200; line-height: 1.4; text-wrap: balance; }
+  .state { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; font-weight: 500; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+  .s-steady { color: var(--green); } .s-info { color: var(--cyan); } .s-watch { color: var(--amber); } .s-review_required { color: var(--red); }
+
+  /* Check-in */
+  .steps { display: flex; gap: 6px; margin-bottom: 14px; }
+  .steps i { flex: 1; height: 3px; border-radius: 2px; background: var(--line); }
+  .steps i.done { background: var(--cyan); }
+  .q { font-size: 22px; font-weight: 200; line-height: 1.3; margin-bottom: 14px; text-wrap: balance; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field label { display: flex; justify-content: space-between; color: var(--dim); font-size: 13px; }
+  .field label b { color: var(--fg); font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: var(--cyan); }
+  textarea { width: 100%; min-height: 84px; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 2px; padding: 10px; font-family: inherit; font-size: 14px; resize: vertical; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .row.end { justify-content: flex-end; }
+  #rtpad { width: 100%; height: 120px; border-radius: 2px; border: 1px solid var(--line); background: var(--panel2); font-family: var(--display); font-weight: 200; font-size: 24px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 12px; }
+  #rtpad.wait { background: #0d0d0e; color: var(--dim); }
+  #rtpad.go { background: var(--amber); color: #111; border-color: var(--amber); }
+  .receipt { font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 2px; padding: 12px; overflow-x: auto; white-space: pre; color: var(--dim); }
+  .receipt b { color: var(--green); font-weight: 400; } .receipt s { color: var(--red); }
+
+  /* Trends */
+  .charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px 28px; }
+  .chart { border-top: 1px solid var(--line); padding: 12px 0 6px; min-width: 0; }
+  .chart .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .chart .name { font-size: 11px; color: var(--dim); text-transform: uppercase; letter-spacing: 2px; font-weight: 500; }
+  .chart .val { font-family: var(--display); font-weight: 200; font-size: 40px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .chart .val small { font-family: var(--body); font-size: 12px; color: var(--dim); margin-left: 3px; }
+  .chart svg { width: 100%; height: auto; display: block; }
+  .z { font-size: 12px; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: 2px; border: 1px solid currentColor; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; font-size: 12px; color: var(--dim); }
+  .legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; background: var(--c); }
+  .legend .band::before { border-radius: 2px; width: 16px; opacity: .35; }
+
+  /* Alerts */
+  .alerts { display: flex; flex-direction: column; gap: 12px; }
+  .alert { border: 1px solid var(--line); border-left: 2px solid var(--sev); border-radius: 2px; padding: 14px; background: var(--panel2); }
+  .alert.resolved { opacity: .6; }
+  .alert .head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 6px; }
+  .pill { font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; padding: 2px 9px; border-radius: 2px; background: var(--sev); color: #000; }
+  .alert h3 { font-size: 17px; font-weight: 500; }
+  .alert ul { margin: 8px 0 0; padding-left: 18px; color: var(--dim); font-size: 13.5px; }
+  .alert li { margin-bottom: 3px; }
+  .alert li b { color: var(--fg); font-weight: 500; }
+  .human { font-size: 11px; color: var(--amber); border: 1px solid var(--amber); border-radius: 2px; padding: 0 6px; margin-left: 6px; white-space: nowrap; }
+  .sub { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--faint); font-weight: 700; margin-top: 12px; }
+  .decision { margin-top: 12px; }
+  .empty { color: var(--dim); border: 1px dashed var(--line); border-radius: 2px; padding: 18px; text-align: center; }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th { text-align: left; color: var(--dim); font-weight: 500; padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 7px 10px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child { white-space: nowrap; color: var(--dim); }
+
+  /* About */
+  .pipe { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; counter-reset: p; }
+  .pipe div { background: var(--panel2); border: 1px solid var(--line); border-radius: 2px; padding: 12px; font-size: 13.5px; color: var(--dim); counter-increment: p; }
+  .pipe div b { display: block; color: var(--fg); font-size: 15px; margin-bottom: 4px; }
+  .pipe div::before { content: counter(p); font-family: var(--display); font-weight: 200; color: var(--fg); font-size: 30px; }
+  .prose { max-width: 68ch; display: flex; flex-direction: column; gap: 10px; color: var(--dim); }
+  .prose b { color: var(--fg); }
+  footer { color: var(--faint); font-size: 12px; border-top: 1px solid var(--line); padding-top: 14px; }
+
+  @media (max-width: 860px) { .cols { grid-template-columns: minmax(0, 1fr); } nav { margin-left: 0; } }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="logo">ASTRO<span>KATU</span></div>
+    <div class="tele" id="tele"></div>
+    <nav aria-label="Views">
+      <a href="#crew" data-v="crew">Crew</a>
+      <a href="#surgeon" data-v="surgeon">Flight surgeon</a>
+      <a href="#about" data-v="about">How it works</a>
+    </nav>
+  </header>
+
+  <section class="sim" aria-label="Mission simulator">
+    <span class="tag">Mission simulator · synthetic data</span>
+    <select id="scenario" aria-label="Scenario"></select>
+    <button class="btn primary" id="next">Next sol ▸</button>
+    <button class="btn" id="auto">Auto-play</button>
+    <button class="btn ghost" id="reset">Reset</button>
+    <span class="desc" id="scdesc"></span>
+  </section>
+
+  <main id="view"></main>
+
+  <footer>
+    Decision support only. AstroKatu does not diagnose; it flags sustained trends for human review. All data on this page is synthetic or entered by you, and stays in this browser tab.
+    Prototype by Team Pindorama for the NASA Space Apps Challenge 2026. Code written with AI assistance (Claude); wearable signals are simulated; the diary feature extractor is a keyword model standing in for the on-device Gemma 3 1B.
+  </footer>
+</div>
+
+<script>
+/* AstroKatu prototype. Team Pindorama, NASA Space Apps Challenge 2026.
+   AI disclosure: this file was written with AI assistance (Claude) and reviewed by the team.
+   Logic mirrors the Python backend (baseline.py, rules.yaml, actions.py, scenarios.py). All data is synthetic. */
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+const FIRST_SOL = 228, BASE_DAYS = 14, MIN_SAMPLES = 14, DELAY_MIN = 22;
+
+const METRICS = {
+  sleep_h: { label: 'Sleep duration', unit: 'h', floor: 0.3, bad: 'low', fmt: v => v.toFixed(1) },
+  eff:     { label: 'Sleep efficiency', unit: '%', floor: 0.02, bad: 'low', fmt: v => Math.round(v * 100) },
+  fatigue: { label: 'Fatigue', unit: '/10', floor: 0.4, bad: 'high', fmt: v => v.toFixed(1) },
+  rt:      { label: 'Reaction time', unit: 'ms', floor: 10, bad: 'high', fmt: v => Math.round(v) },
+  stress:  { label: 'Diary stress', unit: '', floor: 0.05, bad: 'high', fmt: v => v.toFixed(2) },
+};
+const CHARTED = ['sleep_h', 'fatigue', 'rt', 'stress'];
+const HEALTHY = { sleep_h: [7.4, .35], eff: [.90, .02], fatigue: [3, .5], rt: [285, 12], stress: [.25, .05] };
+
+/* Explainable rules, ported from rules.yaml. No trend rule can fire on a single day. */
+const RULES = [
+  { id: 'sleep_quality_drift', title: 'Sleep drifting below baseline', sev: 'info', win: 5, min: 5,
+    all: [{ m: 'sleep_h', agg: 'below', z: -1.0, count: 4 }, { m: 'sleep_h', agg: 'mean_z', op: '<', v: -1.2 }] },
+  { id: 'sleep_persistent_poor', title: 'Persistent poor sleep', sev: 'watch', win: 3, min: 3,
+    all: [{ m: 'sleep_h', agg: 'below', z: -1.5, count: 3 }, { m: 'eff', agg: 'mean_z', op: '<', v: -1.0 }] },
+  { id: 'integrated_deterioration', title: 'Integrated deterioration: sleep, fatigue and cognition', sev: 'review_required', win: 7, min: 4,
+    requires: ['sleep_persistent_poor'],
+    all: [{ m: 'fatigue', agg: 'above', z: 1.0, count: 4 }, { m: 'rt', agg: 'above', z: 1.0, count: 3 }] },
+  { id: 'diary_high_stress_trend', title: 'Rising stress in diary entries', sev: 'watch', win: 7, min: 5,
+    all: [{ m: 'stress', agg: 'slope', op: '>', v: 0.05 }, { m: 'stress', agg: 'mean', op: '>', v: 0.65 }] },
+];
+const SEV_RANK = { info: 1, watch: 2, review_required: 3 };
+const SEV_LABEL = { info: 'Info', watch: 'Watch', review_required: 'Review required' };
+const SEV_COLOR = { info: 'var(--cyan)', watch: 'var(--amber)', review_required: 'var(--red)' };
+
+/* Curated action library, ported from actions.py. No language model writes clinical content. */
+const ACTIONS = {
+  info: [{ t: 'Shift your sleep schedule by 30 minutes', a: 'crew' }, { t: 'Podcast: living with monotony', a: 'crew' }],
+  watch: [{ t: '4-7-8 breathing exercise', a: 'crew' }, { t: 'Scheduled break and mood log twice a day', a: 'crew' }, { t: 'Reach out to a crewmate', a: 'crew' }],
+  review_required: [{ t: 'Notify mission control', a: 'surgeon', human: true }, { t: 'Schedule an assessment with a health professional', a: 'surgeon', human: true }, { t: 'Increase check-in frequency', a: 'crew' }],
+};
+const TOPIC_ACTIONS = { sleep: 'Sleep hygiene quick guide', isolation: 'Record a family video message for the next comms window', work: 'Review task load with the crew', boredom: 'Podcast: living with monotony' };
+
+/* Scenarios, ported from scenarios.py. k = day of the scenario after the healthy baseline. */
+const det = k => { const n = k + 1, f = Math.min(1, (k + 2) / 4);
+  return { dur: -1.8 * f, eff: -0.12 * f, fat: 0.4 * n, cog: 8 * n, stress: Math.min(.95, .30 + .08 * n), work: true, topics: ['sleep', 'work'] }; };
+const SCENARIOS = {
+  manual: { name: 'Free play (healthy days)', desc: 'Each sol is a normal day. Use the check-in to enter your own data.', days: 0, p: () => ({}) },
+  isolated_bad_night: { name: 'One isolated bad night', desc: 'A single terrible night. The system must stay quiet.', days: 7,
+    p: k => k === 2 ? { dur: -2.7, eff: -0.2, topics: ['sleep'] } : k === 3 ? { fat: 1.0 } : {} },
+  integrated_deterioration: { name: 'Sustained deterioration', desc: 'Poor sleep, rising fatigue, slower reactions, stressed diary. Expect watch, then review required.', days: 10, p: det },
+  recovery: { name: 'Deterioration, then recovery', desc: 'Seven hard sols followed by recovery. Alerts close and the baseline stays intact.', days: 17,
+    p: k => { if (k < 7) return det(k); const f = Math.max(0, 1 - (k - 6) / 4), b = det(6);
+      return { dur: b.dur * f, eff: b.eff * f, fat: b.fat * f, cog: b.cog * f, stress: f === 0 ? null : .25 + .55 * f, topics: f ? ['sleep'] : ['work'] }; } },
+};
+
+/* Seeded generator so every demo run is reproducible. */
+let rnd;
+const mulberry = a => () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+const gauss = () => { let u = 0; while (!u) u = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rnd()); };
+function genDay(p = {}) {
+  const g = k => HEALTHY[k][0] + HEALTHY[k][1] * gauss();
+  return { sleep_h: clamp(g('sleep_h') + (p.dur || 0), 2, 10), eff: clamp(g('eff') + (p.eff || 0), .4, .99),
+    fatigue: clamp(g('fatigue') + (p.fat || 0), 0, 10), rt: Math.max(180, g('rt') + (p.cog || 0)),
+    stress: p.stress != null ? clamp(p.stress + .03 * gauss(), 0, 1) : clamp(g('stress'), 0, 1),
+    workload: !!p.work, topics: p.topics || ['work'], src: 'sim' };
+}
+
+/* ── State ── */
+let S, ci, timer = null, view = 'crew';
+function reset() {
+  rnd = mulberry(42);
+  S = { days: [], base: {}, alerts: [], audit: [], scenario: $('#scenario').value || 'manual', k: 0, nextId: 1, receipt: null };
+  for (let i = 0; i < BASE_DAYS; i++) S.days.push(genDay());
+  for (const m in METRICS) S.base[m] = fit(m);
+  log('system', 'Individual baseline established from ' + BASE_DAYS + ' healthy sols');
+  newCheckin();
+}
+const sol = (i = S.days.length - 1) => FIRST_SOL + i;
+const log = (who, what) => S.audit.unshift({ sol: S.days.length ? sol() : FIRST_SOL, who, what });
+
+/* ── Adaptive individual baseline (baseline.py) ── */
+function fit(m) {
+  const vals = S.days.slice(-30).filter(d => !d.workload && d[m] != null).map(d => d[m]);
+  if (!vals.length) return null;
+  const mean = avg(vals), std = vals.length > 1 ? Math.sqrt(vals.reduce((s, v) => s + (v - mean) ** 2, 0) / (vals.length - 1)) : 0;
+  return { mean, std, n: vals.length };
+}
+const sdOf = m => Math.max(S.base[m].std, METRICS[m].floor);
+const zOf = (m, v) => (v - S.base[m].mean) / sdOf(m);
+function updateBaseline(block) {
+  for (const m in METRICS) {
+    const cand = fit(m), prev = S.base[m];
+    if (!cand || cand.n < MIN_SAMPLES) continue;
+    if (!prev) { S.base[m] = cand; continue; }
+    if (block) continue;                                   // never normalise a deterioration
+    const sd = sdOf(m);
+    if (Math.abs(cand.mean - prev.mean) < sd) continue;    // not significant
+    const recent = S.days.slice(-7).filter(d => !d.workload && d[m] != null).map(d => d[m]);
+    if (recent.length < 5) continue;                       // not sustained
+    const r = avg(recent);
+    if (Math.abs(r - prev.mean) < sd || (r - prev.mean) * (cand.mean - prev.mean) <= 0) continue;
+    S.base[m] = cand;
+    log('system', 'Baseline recalibrated for ' + METRICS[m].label.toLowerCase() + ' after a sustained change');
+  }
+}
+
+/* ── Rules engine ── */
+function cond(c, w) {
+  const M = METRICS[c.m], vals = w.map(d => d[c.m]).filter(v => v != null);
+  if (!S.base[c.m] || !vals.length) return { ok: false };
+  const zs = vals.map(v => zOf(c.m, v)), cmp = x => c.op === '<' ? x < c.v : x > c.v;
+  if (c.agg === 'below') { const n = zs.filter(z => z < c.z).length;
+    return { ok: n >= c.count, desc: `<b>${M.label}</b>: ${n} of the last ${w.length} sols below ${c.z.toFixed(1)} SD of the personal baseline` }; }
+  if (c.agg === 'above') { const n = zs.filter(z => z > c.z).length;
+    return { ok: n >= c.count, desc: `<b>${M.label}</b>: ${n} of the last ${w.length} sols above +${c.z.toFixed(1)} SD of the personal baseline` }; }
+  if (c.agg === 'mean_z') { const x = avg(zs); return { ok: cmp(x), desc: `<b>${M.label}</b>: mean z-score ${x.toFixed(1)} over ${w.length} sols` }; }
+  if (c.agg === 'mean') { const x = avg(vals); return { ok: cmp(x), desc: `<b>${M.label}</b>: mean ${x.toFixed(2)} over ${w.length} sols (threshold ${c.v})` }; }
+  if (c.agg === 'slope') { const n = vals.length, mx = (n - 1) / 2, my = avg(vals);
+    let num = 0, den = 0; vals.forEach((v, i) => { num += (i - mx) * (v - my); den += (i - mx) ** 2; });
+    const x = den ? num / den : 0; return { ok: cmp(x), desc: `<b>${M.label}</b>: rising ${x.toFixed(2)} per sol over ${n} sols` }; }
+  return { ok: false };
+}
+const active = () => S.alerts.filter(a => a.status === 'open');
+function evaluate() {
+  const hits = {};
+  for (const r of RULES) {
+    const w = S.days.slice(-r.win);
+    if (w.length < r.min) continue;
+    if (r.requires && !r.requires.every(x => hits[x])) continue;
+    const ev = []; let ok = true;
+    for (const c of r.all) { const res = cond(c, w); if (!res.ok) { ok = false; break; } ev.push(res.desc); }
+    if (ok) hits[r.id] = ev;
+  }
+  const topics = [...new Set(S.days.slice(-3).flatMap(d => d.topics))];
+  for (const r of RULES) {
+    const open = S.alerts.find(a => a.rule === r.id && a.status === 'open');
+    if (hits[r.id]) {
+      if (open) { open.last = sol(); open.ev = hits[r.id]; }
+      else {
+        const plan = ACTIONS[r.sev].map(x => ({ ...x }));
+        if (r.sev !== 'review_required') topics.forEach(t => { const x = TOPIC_ACTIONS[t]; if (x && !plan.some(p => p.t === x)) plan.push({ t: x, a: 'crew' }); });
+        S.alerts.unshift({ id: S.nextId++, rule: r.id, title: r.title, sev: r.sev, opened: sol(), last: sol(), ev: hits[r.id], plan, status: 'open', decision: null });
+        log('system', `Alert opened: ${r.title} (${SEV_LABEL[r.sev]})`);
+      }
+    } else if (open && sol() - open.last >= 3) {
+      open.status = 'resolved'; open.closed = sol();
+      log('system', `Alert closed: ${open.title}. Trend absent for 3 sols`);
+    }
+  }
+  return Object.keys(hits).length > 0;
+}
+function addDay(d) {
+  S.days.push(d);
+  const hit = evaluate();
+  updateBaseline(hit || active().length > 0);
+  render();
+}
+const topSev = () => active().reduce((s, a) => SEV_RANK[a.sev] > (SEV_RANK[s] || 0) ? a.sev : s, 'steady');
+
+/* ── On-device diary feature extraction (keyword stand-in for the local LLM). Text is never stored. ── */
+const LEX = {
+  neg: /stress|overwhelm|exhaust|anxious|anxiety|worr|afraid|scared|angry|frustrat|pressure|can.?t (sleep|focus|cope)|hopeless|drained|irritat|cansad|ansios|estress|preocupad|irritad/gi,
+  pos: /\b(good|great|calm|fine|happy|rested|proud|fun|relaxed|grateful|bem|feliz|tranquil|descansad)\w*/gi,
+  topics: { sleep: /sleep|tired|insomnia|awake|nap|dorm|sono/i, isolation: /alone|lonely|miss|family|home|isolat|sozinh|saudade|fam[ií]lia/i,
+            work: /work|task|workload|eva|deadline|repair|schedule|trabalho|tarefa/i, boredom: /bored|boring|monoton|same thing|t[eé]dio/i },
+};
+function extract(text, slider) {
+  const neg = (text.match(LEX.neg) || []).length, pos = (text.match(LEX.pos) || []).length;
+  const lex = text.trim() ? clamp(.3 + .2 * neg - .12 * pos, 0, 1) : slider / 10;
+  const topics = Object.keys(LEX.topics).filter(t => LEX.topics[t].test(text));
+  let h = 0x811c9dc5; for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return { stress: clamp(.65 * slider / 10 + .35 * lex, 0, 1), topics: topics.length ? topics : ['work'], hash: (h >>> 0).toString(16).padStart(8, '0'), chars: text.length };
+}
+
+/* ── Views ── */
+const KATU = {
+  steady: { msg: 'All steady. Your numbers sit inside your own normal range.', label: 'Within your baseline', mouth: 'M88 121 q12 10 24 0', c: '#F5F5F5' },
+  info: { msg: 'Your sleep has been running a little short. Small thing. I am keeping an eye on it.', label: 'Noticing a drift', mouth: 'M90 123 q10 5 20 0', c: '#F5F5F5' },
+  watch: { msg: 'Your pattern has moved away from your baseline for several sols. I put a few ideas below.', label: 'Watching a trend', mouth: 'M90 125 h20', c: '#F2B544' },
+  review_required: { msg: 'I flagged a sustained pattern for your flight surgeon. A person decides what happens next, never me.', label: 'Flagged for human review', mouth: 'M90 127 q10 -5 20 0', c: '#F2B544' },
+};
+function katuSvg(k) {
+  return `<svg class="katu" viewBox="0 0 200 200" role="img" aria-label="Katu, your companion">
+    <ellipse cx="100" cy="186" rx="40" ry="3" fill="#F5F5F5" opacity=".12"/>
+    <g class="float">
+      <line x1="100" y1="44" x2="100" y2="22" stroke="#F5F5F5" stroke-width="1.5" fill="none"/>
+      <circle class="tip" cx="100" cy="17" r="5" fill="${k.c}"/>
+      <path d="M38 112 a62 64 0 0 1 124 0 v20 a38 38 0 0 1 -38 38 h-48 a38 38 0 0 1 -38 -38z" fill="#000" stroke="#F5F5F5" stroke-width="1.5"/>
+      <rect x="54" y="76" width="92" height="60" rx="28" fill="#000" stroke="${k.c}" stroke-width="1.5"/>
+      <g class="eyes" fill="${k.c}"><ellipse cx="82" cy="104" rx="7" ry="9"/><ellipse cx="118" cy="104" rx="7" ry="9"/></g>
+      <path d="${k.mouth}" stroke="${k.c}" stroke-width="2" stroke-linecap="round" fill="none"/>
+      <circle cx="100" cy="153" r="4" fill="none" stroke="${k.c}" stroke-width="1.5"/>
+    </g></svg>`;
+}
+function chart(m) {
+  const M = METRICS[m], b = S.base[m], data = S.days.slice(-24), off = S.days.length - data.length;
+  const W = 300, H = 104, L = 8, R = 10, T = 10, B = 20, sd = sdOf(m);
+  const vals = data.map(d => d[m]).filter(v => v != null);
+  let lo = Math.min(...vals, b.mean - 2.5 * sd), hi = Math.max(...vals, b.mean + 2.5 * sd); const pad = (hi - lo) * .08; lo -= pad; hi += pad;
+  const x = i => L + (W - L - R) * i / Math.max(1, data.length - 1), y = v => T + (H - T - B) * (1 - (v - lo) / (hi - lo));
+  const pts = data.map((d, i) => d[m] == null ? null : [x(i), y(d[m]), d]).filter(Boolean);
+  const bad = v => (M.bad === 'low' ? -1 : 1) * zOf(m, v);
+  const col = v => bad(v) > 2 ? 'var(--red)' : bad(v) > 1 ? 'var(--amber)' : 'var(--cyan)';
+  const last = data[data.length - 1][m], zl = last == null ? null : zOf(m, last);
+  return `<div class="chart"><div class="head"><span class="name">${M.label}</span>
+      ${last == null ? '<span class="muted">not measured</span>' : `<span class="z" style="color:${col(last)}">z ${zl >= 0 ? '+' : '−'}${Math.abs(zl).toFixed(1)}</span>`}</div>
+    <div class="val">${last == null ? '–' : M.fmt(last)}<small>${M.unit} · baseline ${M.fmt(b.mean)}</small></div>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${M.label}, last ${data.length} sols against personal baseline">
+      <rect x="${L}" y="${y(b.mean + sd)}" width="${W - L - R}" height="${y(b.mean - sd) - y(b.mean + sd)}" fill="var(--cyan)" opacity=".09"/>
+      <line x1="${L}" x2="${W - R}" y1="${y(b.mean)}" y2="${y(b.mean)}" stroke="var(--cyan)" stroke-width="1" stroke-dasharray="3 4" opacity=".6" fill="none"/>
+      <polyline points="${pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ')}" fill="none" stroke="var(--fg)" stroke-width="1" opacity=".7"/>
+      ${pts.map((p, i) => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${i === pts.length - 1 ? 4.5 : 2.8}" fill="${col(p[2][m])}" ${p[2].src === 'you' ? 'stroke="var(--fg)" stroke-width="1.5"' : ''}/>`).join('')}
+      <text x="${L}" y="${H - 5}" fill="var(--dim)" font-size="10">sol ${FIRST_SOL + off}</text>
+      <text x="${W - R}" y="${H - 5}" fill="var(--dim)" font-size="10" text-anchor="end">sol ${sol()}</text>
+    </svg></div>`;
+}
+function trends() {
+  return `<div class="panel"><div class="eyebrow">Trends against your own baseline</div>
+    <div class="charts">${CHARTED.map(chart).join('')}</div>
+    <div class="legend"><span class="band" style="--c:var(--cyan)">your normal range (±1 SD)</span><span style="--c:var(--cyan)">inside range</span><span style="--c:var(--amber)">beyond 1 SD</span><span style="--c:var(--red)">beyond 2 SD</span><span style="--c:var(--fg)">ringed: entered by you</span></div></div>`;
+}
+function alertCard(a, surgeon) {
+  const plan = a.plan.filter(p => surgeon || p.a === 'crew');
+  return `<div class="alert ${a.status}" style="--sev:${SEV_COLOR[a.sev]}">
+    <div class="head"><span class="pill">${SEV_LABEL[a.sev]}</span><h3>${a.title}</h3>
+      <span class="muted">opened sol ${a.opened}${a.status === 'resolved' ? ' · closed sol ' + a.closed : ''}</span></div>
+    <div class="sub">Evidence</div><ul>${a.ev.map(e => `<li>${e}</li>`).join('')}</ul>
+    <div class="sub">${surgeon ? 'Action plan (curated library, nothing runs automatically)' : 'Things you can try'}</div>
+    <ul>${plan.map(p => `<li><b>${p.t}</b>${p.human ? '<span class="human">needs a human</span>' : ''}</li>`).join('')}</ul>
+    ${surgeon ? (a.decision ? `<p class="muted decision">Reviewed on sol ${a.decision.sol}: <b style="color:var(--fg)">${a.decision.label}</b></p>`
+      : a.status === 'open' ? `<div class="row decision"><button class="btn" data-dec="confirmed" data-id="${a.id}">Confirm</button><button class="btn" data-dec="needs_followup" data-id="${a.id}">Needs follow-up</button><button class="btn ghost" data-dec="dismissed" data-id="${a.id}">Dismiss</button></div>` : '') : ''}
+  </div>`;
+}
+function crewView() {
+  const k = KATU[topSev()], mine = active();
+  return `<div class="cols"><div class="stack">
+      <div class="panel katu-card">${katuSvg(k)}<div class="bubble">${k.msg}</div>
+        <span class="state s-${topSev()}"><span class="dot"></span>${k.label}</span></div>
+      <div class="panel" id="checkin"></div>
+    </div><div class="stack">${trends()}
+      <div class="panel"><div class="eyebrow">For you</div><div class="alerts">${mine.length ? mine.map(a => alertCard(a, false)).join('')
+        : '<div class="empty">Nothing needs your attention. One rough night never triggers an alert; only sustained trends do.</div>'}</div></div>
+    </div></div>`;
+}
+function surgeonView() {
+  const q = [...S.alerts].sort((a, b) => (a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1) || SEV_RANK[b.sev] - SEV_RANK[a.sev]);
+  return `<div class="stack">
+    <div class="panel"><div class="eyebrow">Review queue · crew member CM-2</div>
+      <p class="muted" style="margin-bottom:12px">You see features and trends only. Diary text never leaves the crew member's device. Reports reach Earth with a ${DELAY_MIN}-minute one-way delay, so the on-board system must work without you.</p>
+      <div class="alerts">${q.length ? q.map(a => alertCard(a, true)).join('') : '<div class="empty">Queue is empty. Pick a scenario in the simulator and advance a few sols.</div>'}</div></div>
+    ${trends()}
+    <div class="panel"><div class="eyebrow">Audit log</div><div class="tablewrap"><table><thead><tr><th>Sol</th><th>Actor</th><th>Event</th></tr></thead>
+      <tbody>${S.audit.map(e => `<tr><td>${e.sol}</td><td>${e.who}</td><td>${e.what}</td></tr>`).join('')}</tbody></table></div></div></div>`;
+}
+function aboutView() {
+  return `<div class="stack"><div class="panel"><div class="eyebrow">Why it exists</div><div class="prose">
+      <h2>At Mars distance, a call for help takes 44 minutes to come back.</h2>
+      <p>Signals need up to <b>22 minutes each way</b> between Mars and Earth. NASA's behavioral health support relies on live conversations with the ground, which stop working at that distance. AstroKatu runs on board and keeps working with no link at all.</p></div></div>
+    <div class="panel"><div class="eyebrow">How a day flows through the system</div><div class="pipe">
+      <div><b>Collect</b>Wearable sleep and vitals, a reaction-time tap test, and three questions from Katu.</div>
+      <div><b>Extract on device</b>A local model turns the diary into a few numbers. The text is destroyed.</div>
+      <div><b>Compare with you</b>Every value is scored against your own adaptive baseline, not a crew average.</div>
+      <div><b>Apply rules</b>Readable rules look for trends that last several sols. One bad day never fires.</div>
+      <div><b>Human decides</b>Alerts carry their evidence to a flight surgeon. Nothing acts automatically.</div></div></div>
+    <div class="panel"><div class="eyebrow">Design rules we hold ourselves to</div><div class="prose">
+      <p><b>Trend, not event.</b> Every rule needs at least three sols of evidence.</p>
+      <p><b>Deterioration never becomes the new normal.</b> The baseline freezes while an alert is open and ignores high-workload sols.</p>
+      <p><b>Privacy by design.</b> Only structured features are stored. Try the check-in and read the receipt.</p>
+      <p><b>No diagnosis.</b> The system supports decisions. It does not name or classify disorders.</p>
+      <p><b>What is real in this prototype:</b> the baseline, rules engine, action library and scenarios mirror our Python backend. Sensor data is synthetic, and the diary extractor is a keyword model standing in for Gemma 3 1B running locally through Ollama.</p></div></div></div>`;
+}
+
+/* ── Check-in ── */
+function newCheckin() { ci = { step: 0, sleep: 7.5, quality: 7, fatigue: 3, stress: 3, text: '', rts: [], rtState: 'idle' }; }
+function checkin() {
+  const el = $('#checkin'); if (!el) return;
+  const bar = `<div class="eyebrow">Daily check-in · sol ${sol() + 1}</div><div class="steps">${[0, 1, 2, 3].map(i => `<i class="${i < ci.step ? 'done' : ''}"></i>`).join('')}</div>`;
+  const nav = (lbl = 'Next') => `<div class="row end">${ci.step ? '<button class="btn ghost" data-ci="back">Back</button>' : ''}<button class="btn primary" data-ci="next">${lbl}</button></div>`;
+  if (ci.step === 0) el.innerHTML = bar + `<p class="q">How did you sleep last night?</p>
+    <div class="field"><label for="ci-sleep">Hours slept <b>${ci.sleep.toFixed(1)} h</b></label><input type="range" id="ci-sleep" data-k="sleep" min="2" max="10" step="0.1" value="${ci.sleep}"></div>
+    <div class="field"><label for="ci-quality">How rested do you feel? <b>${ci.quality} / 10</b></label><input type="range" id="ci-quality" data-k="quality" min="1" max="10" step="1" value="${ci.quality}"></div>` + nav();
+  else if (ci.step === 1) el.innerHTML = bar + `<p class="q">How heavy does your body feel right now?</p>
+    <div class="field"><label for="ci-fatigue">Fatigue <b>${ci.fatigue} / 10</b></label><input type="range" id="ci-fatigue" data-k="fatigue" min="0" max="10" step="1" value="${ci.fatigue}"></div>` + nav();
+  else if (ci.step === 2) el.innerHTML = bar + `<p class="q">What is on your mind today?</p>
+    <div class="field"><label for="ci-stress">Tension <b>${ci.stress} / 10</b></label><input type="range" id="ci-stress" data-k="stress" min="0" max="10" step="1" value="${ci.stress}"></div>
+    <div class="field"><label for="ci-text">Diary (optional, processed on this device and destroyed)</label><textarea id="ci-text" placeholder="Write freely. Nobody will ever read this text.">${''}</textarea></div>` + nav();
+  else if (ci.step === 3) {
+    const n = ci.rts.length, lbl = { idle: n ? `${ci.rts[n - 1]} ms. Tap for round ${n + 1} of 3` : 'Tap to start', wait: 'Wait for amber…', go: 'TAP!', early: 'Too early. Tap to retry' }[ci.rtState];
+    el.innerHTML = bar + `<p class="q">Reaction check. Tap the pad as soon as it turns amber.</p>
+      ${n < 3 ? `<button id="rtpad" class="${ci.rtState === 'wait' ? 'wait' : ci.rtState === 'go' ? 'go' : ''}">${lbl}</button>` : `<p class="bubble" style="margin-bottom:12px">Average of 3 rounds: <b>${Math.round(avg(ci.rts))} ms</b></p>`}
+      <div class="row end"><button class="btn ghost" data-ci="back">Back</button>${n < 3 ? '<button class="btn" data-ci="next">Skip test</button>' : '<button class="btn primary" data-ci="next">Log this sol</button>'}</div>`;
+  } else {
+    const r = S.receipt;
+    el.innerHTML = `<div class="eyebrow">Sol ${sol()} logged · privacy receipt</div>
+      <div class="receipt">diary text      <s>${r.chars} characters, destroyed on device</s>
+text fingerprint ${r.hash}
+kept features    <b>stress ${r.stress.toFixed(2)}</b>
+                 <b>topics [${r.topics.join(', ')}]</b>
+                 <b>sleep ${r.sleep.toFixed(1)} h, fatigue ${r.fatigue}/10${r.rt ? ', reaction ' + r.rt + ' ms' : ''}</b>
+model            keyword-extractor-demo-0.1
+sent to Earth    nothing yet (features only, next comms window)</div>
+      <div class="row end" style="margin-top:12px"><button class="btn primary" data-ci="again">Check in for the next sol</button></div>`;
+  }
+  const ta = $('#ci-text'); if (ta) ta.value = ci.text;
+}
+function submitCheckin() {
+  const f = extract(ci.text, ci.stress), rt = ci.rts.length === 3 ? Math.round(avg(ci.rts)) : null;
+  S.receipt = { ...f, sleep: ci.sleep, fatigue: ci.fatigue, rt };
+  ci.text = ''; ci.step = 4;                                // the text is gone from memory here
+  addDay({ sleep_h: ci.sleep, eff: clamp(.72 + .02 * ci.quality, .4, .99), fatigue: ci.fatigue, rt, stress: f.stress, workload: false, topics: f.topics, src: 'you' });
+  log('crew', 'Check-in logged. Diary text destroyed on device, features kept');
+  render();
+}
+let rtT0 = 0, rtTimer = null;
+function rtTap() {
+  if (ci.rtState === 'idle' || ci.rtState === 'early') { ci.rtState = 'wait'; checkin();
+    rtTimer = setTimeout(() => { ci.rtState = 'go'; rtT0 = performance.now(); checkin(); }, 1200 + Math.random() * 2000); }
+  else if (ci.rtState === 'wait') { clearTimeout(rtTimer); ci.rtState = 'early'; checkin(); }
+  else if (ci.rtState === 'go') { ci.rts.push(Math.round(performance.now() - rtT0)); ci.rtState = 'idle'; checkin(); }
+}
+
+/* ── Wiring ── */
+function render() {
+  $('#tele').innerHTML = `<span>Sol <b>${sol()}</b> of transit</span><span class="link">Earth link <b>${DELAY_MIN} min one-way</b></span><span>Processing <b>on board</b></span>`;
+  document.querySelectorAll('nav a').forEach(a => a.classList.toggle('on', a.dataset.v === view));
+  $('#view').innerHTML = view === 'surgeon' ? surgeonView() : view === 'about' ? aboutView() : crewView();
+  const sc = SCENARIOS[S.scenario];
+  $('#scdesc').textContent = sc.desc + (sc.days ? ` Sol ${Math.min(S.k, sc.days)} of ${sc.days}.` : '');
+  $('#auto').textContent = timer ? 'Pause' : 'Auto-play';
+  checkin();
+}
+function nextSol() { const sc = SCENARIOS[S.scenario]; addDay(genDay(S.k < sc.days ? sc.p(S.k) : {})); S.k++; if (ci.step === 4) newCheckin(); render(); }
+function stopAuto() { clearInterval(timer); timer = null; }
+function route() { const h = location.hash.slice(1); view = ['crew', 'surgeon', 'about'].includes(h) ? h : 'crew'; render(); }
+
+$('#scenario').innerHTML = Object.entries(SCENARIOS).map(([k, s]) => `<option value="${k}">${s.name}</option>`).join('');
+$('#scenario').addEventListener('change', () => { stopAuto(); reset(); render(); });
+$('#next').addEventListener('click', nextSol);
+$('#reset').addEventListener('click', () => { stopAuto(); reset(); render(); });
+$('#auto').addEventListener('click', () => { if (timer) stopAuto(); else timer = setInterval(() => { nextSol(); const sc = SCENARIOS[S.scenario]; if (sc.days && S.k >= sc.days) { stopAuto(); render(); } }, 1100); render(); });
+document.addEventListener('input', e => {
+  if (e.target.id === 'ci-text') { ci.text = e.target.value; return; }
+  const k = e.target.dataset.k; if (!k) return;
+  ci[k] = +e.target.value; const b = e.target.closest('.field').querySelector('b');
+  b.textContent = k === 'sleep' ? ci.sleep.toFixed(1) + ' h' : ci[k] + ' / 10';
+});
+document.addEventListener('click', e => {
+  if (e.target.id === 'rtpad') return rtTap();
+  const c = e.target.dataset.ci;
+  if (c === 'next') { if (ci.step === 3) submitCheckin(); else { ci.step++; checkin(); } }
+  else if (c === 'back') { clearTimeout(rtTimer); ci.rtState = 'idle'; ci.step--; checkin(); }
+  else if (c === 'again') { newCheckin(); checkin(); }
+  const d = e.target.dataset.dec;
+  if (d) { const a = S.alerts.find(x => x.id === +e.target.dataset.id), label = { confirmed: 'Confirmed', needs_followup: 'Needs follow-up', dismissed: 'Dismissed' }[d];
+    a.decision = { sol: sol(), label }; if (d === 'dismissed') { a.status = 'resolved'; a.closed = sol(); }
+    log('flight surgeon', `${label}: ${a.title}`); render(); }
+});
+window.addEventListener('hashchange', route);
+reset(); route();
+</script>
+</body>
+</html>

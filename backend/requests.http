@@ -1,0 +1,82 @@
+### Funciona com a extensão "REST Client" (VS Code) ou o HTTP Client do JetBrains.
+### Rode `python -m app.seed` antes e cole os tokens/ids nas variáveis.
+@host = http://localhost:8000
+
+### 1) Login admin (demo)
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{"email": "admin@astrokatu.dev", "password": "demo1234"}
+
+### 2) Login clínico
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{"email": "clinico@astrokatu.dev", "password": "demo1234"}
+
+### 3) Login astronauta
+POST {{host}}/auth/login
+Content-Type: application/json
+
+{"email": "astro1@astrokatu.dev", "password": "demo1234"}
+
+###
+@admin_token = COLE_AQUI
+@clin_token = COLE_AQUI
+@astro_token = COLE_AQUI
+@astro_id = COLE_AQUI
+
+### 4) Cenários disponíveis
+GET {{host}}/admin/scenarios
+Authorization: Bearer {{admin_token}}
+
+### 5) Simular deterioração integrada (seed fixa => demo reproduzível)
+POST {{host}}/admin/simulate
+Authorization: Bearer {{admin_token}}
+Content-Type: application/json
+
+{"scenario": "integrated_deterioration", "user_id": "{{astro_id}}", "seed": 42}
+
+### 6) Fila de revisão do clínico
+GET {{host}}/clinician/review-queue
+Authorization: Bearer {{clin_token}}
+
+### 7) Timeline com baseline (para o gráfico sombreado)
+GET {{host}}/clinician/users/{{astro_id}}/timeline?days=45
+Authorization: Bearer {{clin_token}}
+
+### 8) Revisão humana de um alerta
+POST {{host}}/clinician/alerts/1/review
+Authorization: Bearer {{clin_token}}
+Content-Type: application/json
+
+{"decision": "confirmed", "note": "Contato realizado."}
+
+### 9) Plano de ações (visão do astronauta)
+GET {{host}}/users/{{astro_id}}/action-plan
+Authorization: Bearer {{astro_token}}
+
+### 10) Diário: texto cru é REJEITADO (422), só features passam
+POST {{host}}/entries/diary
+Authorization: Bearer {{astro_token}}
+Content-Type: application/json
+
+{
+  "ts": "2026-11-14T21:00:00Z",
+  "text_hash": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+  "local_model_version": "minilm-clf-0.3",
+  "consent": true,
+  "features": {
+    "neg_emotion_score": 0.62, "pos_emotion_score": 0.21, "stress_score": 0.71,
+    "loneliness_score": 0.44, "anhedonia_score": 0.30,
+    "suicidal_ideation_flag": 0.02, "suicidal_ideation_confidence": "low",
+    "text_length": 412, "complexity": 0.58, "topic_tags": ["sono", "trabalho"]
+  }
+}
+
+### 11) Revogar consentimento do diário
+POST {{host}}/users/{{astro_id}}/consent
+Authorization: Bearer {{astro_token}}
+Content-Type: application/json
+
+{"diary": false}

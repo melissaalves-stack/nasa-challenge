@@ -1,126 +1,134 @@
-# AstroKatu
+# ASTROKATU
 
-**Sistema experimental de acompanhamento da saúde e do bem-estar de astronautas em missões espaciais de longa duração.**
+**Behavioral health monitoring that travels with the crew.**
 
-## SOBRE O PROJETO
+Team Pindorama · NASA Space Apps Challenge 2026 · Challenge: *Create Health Monitoring Software for Astronauts on Space Missions*
 
-O AstroKatu é um projeto desenvolvido pela equipe Pindorama no contexto do NASA Space Apps Challenge. A proposta consiste em desenvolver um sistema inteligente capaz de acompanhar indicadores físicos e comportamentais de astronautas, auxiliando na identificação de alterações relevantes durante missões espaciais de longa duração.
+> *Katu* comes from Tupi and carries the sense of "good, well". AstroKatu is well-being for those who go farthest.
 
-Considerando os desafios de isolamento, confinamento, comunicação limitada e ausência de assistência médica imediata, o AstroKatu busca oferecer acompanhamento contínuo e interação personalizada por meio de um companheiro virtual.
+| | |
+|---|---|
+| **Live prototype** | LINK_VERCEL_AQUI |
+| **30-second demo** | LINK_YOUTUBE_AQUI (file: [`media/AstroKatu_demo_30s.mp4`](media/AstroKatu_demo_30s.mp4)) |
+| **Backend** | [`backend/`](backend/README.md) |
+| **Data pipeline and NASA data** | [`dados/`](dados/README.md) |
+| **Research** | [`docs/research/`](docs/research) |
 
-## PROBLEMA
+---
 
-Missões espaciais de longa duração, especialmente aquelas destinadas a Marte, apresentam desafios relacionados à saúde física e mental dos astronautas. O isolamento, a distância da Terra, as alterações fisiológicas e os atrasos de comunicação dificultam o acompanhamento contínuo e a assistência imediata.
+## The problem
 
-O AstroKatu busca contribuir para esse cenário por meio de processamento local, acompanhamento individualizado e funcionamento independente da comunicação terrestre.
+On a Mars transit, a signal needs up to **22 minutes to reach Earth and 22 more to come back**. Behavioral health support for astronauts today relies on live conversations with specialists on the ground. With a 44-minute round trip, that model stops working exactly when a crew member needs it most.
 
-## SOLUÇÃO PROPOSTA
+Long missions also mean isolation, confinement, disrupted sleep and sustained workload. The crew ends up responsible for noticing changes in themselves.
 
-A solução consiste em um sistema híbrido que combina inteligência artificial local, análise de dados fisiológicos e interação com o astronauta por meio de um companheiro virtual.
+## What AstroKatu does
 
-O sistema poderá utilizar sensores, dispositivos vestíveis e autorrelatos para acompanhar padrões individuais e identificar possíveis alterações relevantes. A inferência local permite que o AstroKatu continue funcionando mesmo quando não há conexão com a Terra.
+AstroKatu runs on board and needs no link to Earth.
 
-Quando houver disponibilidade de comunicação, informações selecionadas poderão ser sincronizadas com sistemas terrestres.
+1. **Collect.** Wearable sleep and vital signs, a reaction-time tap test, and a three-question daily check-in led by Katu, a small companion character.
+2. **Extract on the device.** A local language model turns the diary entry into a few structured features. The text is destroyed and never leaves the device.
+3. **Compare with you.** Every value is scored against the crew member's own adaptive baseline, not a crew average.
+4. **Apply readable rules.** Rules written in YAML look for trends that last several days. One bad night never raises an alert.
+5. **A human decides.** Alerts carry their evidence to a flight surgeon's review queue. Suggested actions come from a curated library, and nothing is executed automatically.
 
-## FUNCIONALIDADES PREVISTAS
+AstroKatu supports decisions. It does not diagnose.
 
-- Acompanhamento de indicadores fisiológicos.
-- Monitoramento de sono e atividade física.
-- Registro de autorrelatos e percepção de bem-estar.
-- Identificação de alterações em padrões individuais.
-- Interação com um companheiro virtual.
-- Processamento local de informações.
-- Funcionamento independente da internet.
-- Sincronização eventual com sistemas terrestres.
-- Recomendações de acompanhamento e bem-estar.
+## Real NASA data
 
-## ARQUITETURA
+The data module applies the same idea to real astronaut data. `dados/nasa_osdr.py` downloads the blood panels of the **Inspiration4** crew from NASA's Open Science Data Repository, study [OSD-575](https://osdr.nasa.gov/bio/repo/data/studies/OSD-575) (metabolic, immune and cardiovascular panels, before and after flight). It compares each crew member's post-flight values with **their own pre-flight baseline** and measures how long each change takes to return to normal.
 
-O AstroKatu adota uma arquitetura híbrida, composta por coleta de dados, processamento local, inferência de inteligência artificial, interface de interação e comunicação com sistemas terrestres.
+The same module also simulates a 180-day mission with 7 crew members and hidden problems, then checks whether the detector finds them (`simulate.py`, `report.py`, `evaluate.py`).
 
-```text
-Sensores e Wearables
-        |
-        v
-Coleta de dados
-        |
-        v
-Processamento local
-        |
-        v
-Inferência de IA
-        |
-        v
-Identificação de padrões
-        |
-        v
-Companheiro virtual
-        |
-        v
-Acompanhamento
-        |
-        v
-Sincronização com a Terra
+## Design rules
+
+- **Trend, not event.** Every rule needs several days of evidence.
+- **Deterioration never becomes the new normal.** The baseline freezes while an alert is open and ignores high-workload days.
+- **Privacy by design.** Only structured features are stored.
+- **Explainable and auditable.** Each alert shows the numbers behind it, and every clinical review is logged.
+
+## Try it
+
+**Prototype (no install):** open `index.html` in a browser.
+
+- *Crew* tab: complete a check-in and read the privacy receipt.
+- *Mission simulator* bar: pick "Sustained deterioration" and press Auto-play.
+- *Flight surgeon* tab: review the queue, the evidence and the audit log.
+
+**Data pipeline:**
+
+```bash
+cd dados
+pip install -r requirements.txt
+python simulate.py           # create the mission data
+python report.py --dia 46    # analyse and write one report per crew member
+python evaluate.py           # check whether the hidden problems were found
+python nasa_osdr.py          # download and analyse NASA OSD-575 (needs internet)
 ```
 
-## STACK TECNOLÓGICA
+**Backend:**
 
-| Componente | Tecnologia |
-|---|---|
-| Linguagem | Python |
-| Runtime de IA | Ollama |
-| Modelo de linguagem | Gemma 3 1B |
-| API | FastAPI |
-| Banco de dados | SQLite |
-| Formato de dados | JSON |
-| Versionamento | Git |
-| Repositório | GitHub |
-
-As tecnologias representam a stack proposta para o protótipo, com execução local do modelo de linguagem já testada.
-
-## TESTES REALIZADOS
-
-Foi realizado um teste experimental utilizando o modelo Gemma 3 1B por meio do Ollama.
-
-| Teste | Resultado |
-|---|---|
-| Execução com internet | Aprovado |
-| Execução sem internet | Aprovado |
-
-Os resultados demonstraram que o modelo pode produzir respostas localmente após o download dos arquivos necessários, sem depender de conexão contínua com a internet.
-
-## ESTRUTURA DO REPOSITÓRIO
-
-```text
-AstroKatu-IA/
-├── docs/
-│   ├── HARDWARE.md
-│   ├── STACK_TECNICA.md
-│   └── TESTE_INFERENCIA.md
-├── ia-local/
-│   └── README.md
-├── .gitignore
-└── README.md
+```bash
+cd backend
+pip install -r requirements-dev.txt
+python -m app.seed
+uvicorn app.main:app --reload
 ```
 
-## DOCUMENTAÇÃO
+Then open `http://localhost:8000/demo` or `http://localhost:8000/docs`.
 
-| Documento | Descrição |
+**Deploy:** import this repository in Vercel with the framework preset "Other". `index.html` at the root is served as a static site.
+
+## Repository map
+
+| Path | Contents |
 |---|---|
-| [HARDWARE.md](docs/HARDWARE.md) | Análise de hardware para inferência local |
-| [STACK_TECNICA.md](docs/STACK_TECNICA.md) | Arquitetura e tecnologias propostas |
-| [TESTE_INFERENCIA.md](docs/TESTE_INFERENCIA.md) | Registro dos testes de inferência local |
+| `index.html` | Interactive prototype: companion, check-in, baseline, rules engine, review queue |
+| `backend/` | FastAPI service: adaptive baseline, YAML rules engine, action library, scenario simulator, tests |
+| `dados/` | Data pipeline: mission simulation, individual baseline, detection, evaluation, and analysis of NASA OSDR study OSD-575 |
+| `docs/research/` | Literature review on mental health in spaceflight, the gap argument, problem mapping, references |
+| `docs/architecture/` | Technical stack, hardware study, local inference test |
+| `docs/pitch/` | Pitch scripts in English and Portuguese |
+| `docs/submission_text.md` | Text submitted to the Space Apps project page |
+| `media/` | Demo video |
 
-EQUIPE
+## Technology
 
-**Equipe:** Pindorama
+Python · pandas · NumPy · FastAPI · SQLite · YAML rules engine · pytest · Ollama with Gemma 3 1B (local inference) · HTML, CSS and JavaScript · Figma · Miro
 
-**Projeto:** AstroKatu
+## Current state
 
-Desenvolvido no contexto do NASA Space Apps Challenge.
+This is a hackathon prototype, and all data is synthetic.
 
-## LIMITAÇÕES
+- The baseline, rules engine, action library and scenarios are implemented in the backend and mirrored in the web prototype.
+- Sensor readings are simulated.
+- In the web prototype, the diary feature extractor is a keyword model standing in for Gemma 3 1B. Local inference with Gemma through Ollama was tested separately (see `docs/architecture/TESTE_INFERENCIA.md`).
+- The rules still need clinical validation.
 
-O AstroKatu é um protótipo experimental. As funcionalidades propostas não representam um sistema médico certificado e não devem ser utilizadas para diagnóstico ou tratamento de condições de saúde.
+## Team Pindorama
 
-A utilização em missões espaciais reais exigiria validação clínica, avaliação de segurança, qualificação de hardware e testes em condições apropriadas.
+| Member | Role |
+|---|---|
+| **Melissa Alves** | Team lead. Functional prototype, demo video, pitch, and research on computational references |
+| **Joaquim Moreira** | Backend: API, adaptive baseline, rules engine, simulator |
+| **Guilherme Aredes** | Data: mission simulation, detection and evaluation pipeline, analysis of NASA OSDR data |
+| **Victoria Tambasco** | Visual prototype and interface design (Figma) |
+| **Otavio Oliveira** | Infrastructure and technical architecture |
+| **Isabela** | Health and behavioral science research |
+
+## NASA resources
+
+- NASA Open Science Data Repository, study OSD-575 (Inspiration4): https://osdr.nasa.gov/bio/repo/data/studies/OSD-575
+- NASA Human Research Program: https://www.nasa.gov/hrp/
+- Bell, S. et al. *Behavioral Health and Performance for Future Space Exploration 2024.* NASA Technical Reports Server: https://ntrs.nasa.gov/api/citations/20240014687/downloads/BHP%20for%20Future%20Space%20Exploration%202024.pdf
+- NASA Twins Study (2019), as cited in the literature review.
+
+The full reference list is in [`docs/research/saude_mental_em_missoes_espaciais.md`](docs/research/saude_mental_em_missoes_espaciais.md).
+
+## Use of AI
+
+We used AI assistants (Claude) to help write code, edit text and produce the demo video. The narration voice and the music in the video are AI-generated, and the video carries a visible notice. Gemma 3 1B is a component of the system design itself. The idea, the research direction and the design decisions are the team's.
+
+## Disclaimer
+
+AstroKatu is a decision-support prototype. It is not a medical device and does not provide diagnosis or treatment.

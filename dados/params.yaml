@@ -1,0 +1,46 @@
+# Parâmetros do simulador AstroKatu
+# Cada valor traz a fonte ao lado. "CALIBRAR" = valor típico provisório,
+# a substituir por número publicado pela NASA (HRP / Standard Measures / OSDR).
+
+seed: 7
+tripulantes: 7
+dias_pre_voo: 30        # baseline inicial (dias negativos)
+dias_missao: 180
+
+# Média populacional e variação ENTRE tripulantes (cada um sorteia o próprio normal)
+# e variação diária DENTRO do tripulante.
+sinais:
+  sono_horas:      {media: 6.0,  entre: 0.5,  diario: 0.6,  min: 2,   max: 10}   # Barger et al. 2014 (Lancet Neurol.): 6,09 h/noite na ISS (21 astronautas, actigrafia)
+  sono_eficiencia: {media: 0.88, entre: 0.05, diario: 0.05, min: 0.4, max: 1}    # NASA/Flynn-Evans (actigrafia ISS longa duração): 87-91% ± 5-6
+  hrv_rmssd:       {media: 40,   entre: 10,   diario: 6,    min: 8,   max: 120}  # ms — Nunan et al. 2010 (adultos saudáveis, ~42 ms) via fonte secundária: CONFERIR texto completo
+  fc_repouso:      {media: 56,   entre: 6,    diario: 3,    min: 40,  max: 110}  # bpm — Otsuka et al. (Holter, n=7): FC noturna ~55 bpm em solo e em voo
+  spo2:            {media: 97.5, entre: 0.5,  diario: 0.6,  min: 88,  max: 100}  # % — faixa clínica normal 95-100; CALIBRAR com dado de voo
+  pvt_ms:          {media: 280,  entre: 25,   diario: 18,   min: 180, max: 700}  # ms — CALIBRAR (PVT-B de 3 min, Basner et al. 2011: lapso = RT > 355 ms)
+  atividade_min:   {media: 120,  entre: 15,   diario: 20,   min: 0,   max: 240}  # ISS: ~2 h/dia de exercício previstas
+  humor:           {media: 3.8,  entre: 0.4,  diario: 0.6,  min: 1,   max: 5}    # escala 1-5 (diário do bichinho)
+  energia:         {media: 3.7,  entre: 0.4,  diario: 0.6,  min: 1,   max: 5}
+  estresse:        {media: 2.3,  entre: 0.4,  diario: 0.6,  min: 1,   max: 5}    # 5 = muito estressado
+
+# Eventos injetados (o gabarito da avaliação).
+# efeito = deslocamento no pico, em desvios-padrão diários do sinal (sinal + = sobe)
+eventos:
+  - {tripulante: T02, tipo: fadiga,       inicio: 40,  duracao: 10,
+     efeito: {sono_horas: -2.0, sono_eficiencia: -1.5, hrv_rmssd: -2.0, fc_repouso: 1.5, pvt_ms: 2.0, energia: -1.5}}
+  - {tripulante: T05, tipo: humor_baixo,  inicio: 90,  duracao: 21,
+     efeito: {humor: -2.2, energia: -1.5, estresse: 1.8, sono_eficiencia: -1.0, hrv_rmssd: -1.0, atividade_min: -1.5}}
+  - {tripulante: T03, tipo: noite_ruim,   inicio: 60,  duracao: 1,       # NÃO deve gerar alerta
+     efeito: {sono_horas: -3.0, sono_eficiencia: -2.5}}
+  - {tripulante: T07, tipo: fadiga,       inicio: 140, duracao: 7,
+     efeito: {sono_horas: -1.8, hrv_rmssd: -2.2, pvt_ms: 2.2, estresse: 1.2}}
+
+# Regras de detecção (proposta — validar com a Isa)
+deteccao:
+  janela_baseline: 21     # dias da mediana móvel
+  suavizacao: 3           # média móvel de 3 dias em cada índice
+  z_leve: -1.5            # só sugestão de autocuidado
+  z_moderado: -2.0        # alerta: recomenda falar com equipe/tripulação
+  z_grave: -3.0           # protocolo combinado antes da missão
+  dias_persistencia: 2    # dias seguidos no nível (somado à suavização, ~4 dias de sinal)
+  dias_saida: 2           # histerese: só baixa de nível depois de 2 dias seguidos abaixo dele
+  sem_grave_sozinho: [cognitivo]  # índice de 1 sinal só (PVT) não aciona grave sem outro índice confirmar
+  min_indices: 2          # 2 índices em nível leve juntos também contam como moderado

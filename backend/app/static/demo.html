@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AstroKatu · Simulação visual</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1b1f2a;--mut:#626a7d;--bd:#dfe3ee;--ok:#2e9e6b;--info:#4a8fd8;--watch:#d99a14;--rev:#e0662e;--crit:#c8283c;--line:#3b5bdb;--band:rgba(59,91,219,.14);--wl:rgba(224,160,32,.16)}
+@media(prefers-color-scheme:dark){:root{--bg:#10131a;--card:#181c26;--tx:#e8ebf3;--mut:#98a1b5;--bd:#2a3040;--ok:#47c48c;--info:#6aa9ee;--watch:#efb53a;--rev:#f08450;--crit:#ef5468;--line:#7b94ff;--band:rgba(123,148,255,.18);--wl:rgba(239,181,58,.16)}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.45 system-ui,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0}h2{font-size:14px;margin:0 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+.banner{background:var(--card);border:1px solid var(--bd);border-left:4px solid var(--info);padding:8px 12px;border-radius:8px;margin:10px 0;color:var(--mut);font-size:13px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.row label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:3px}
+select,input,button{font:inherit;padding:7px 10px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx)}
+button{cursor:pointer;background:var(--line);color:#fff;border-color:transparent}button.sec{background:var(--card);color:var(--tx);border-color:var(--bd)}button:disabled{opacity:.5}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.mood{display:flex;gap:14px;align-items:center}.face{font-size:52px;line-height:1}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;color:#fff;font-size:12px;font-weight:600}
+svg{width:100%;height:auto}svg text{fill:var(--mut);font-size:9px}
+.ev{border-left:4px solid var(--bd);padding:4px 10px;margin:6px 0;font-size:13px}.ev small{color:var(--mut);display:block}
+pre{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px;font-size:12px;overflow:auto;margin:8px 0 0;min-height:48px;white-space:pre-wrap}
+.mut{color:var(--mut);font-size:13px}input[type=range]{flex:1;min-width:160px;padding:0}
+</style></head><body><main>
+<h1>🛰️ AstroKatu · Simulação visual</h1>
+<div class="banner">Sistema de apoio à decisão. Não emite diagnóstico. Dados 100% sintéticos. O diário nunca chega ao servidor como texto, só como features.</div>
+<div class="card"><div class="row">
+ <label>Cenário<select id="sc"></select></label>
+ <label>Astronauta<select id="ast"></select></label>
+ <label>Seed<input id="seed" type="number" value="42" style="width:80px"></label>
+ <button id="run">Gerar simulação</button><span id="msg" class="mut"></span></div></div>
+<div id="out" hidden>
+ <div class="card"><div class="row" style="align-items:center">
+  <button id="play">▶ Reproduzir</button><input id="sl" type="range" min="0" value="0"><b id="dl"></b></div></div>
+ <div class="grid">
+  <div class="card"><h2>Estado do Tamagotchi</h2><div class="mood"><div class="face" id="face">🙂</div>
+   <div><span class="badge" id="bd">ok</span><div id="mt" style="margin-top:6px"></div></div></div></div>
+  <div class="card"><h2>Alertas até este dia</h2><div id="evs"></div></div>
+ </div>
+ <div class="grid" id="charts"></div>
+ <div class="mut">Linha = dado diário · faixa azul = baseline individual ±1 DP · faixa amarela = dia de alta carga · marcas verticais = alertas.</div>
+</div>
+<div class="card" style="margin-top:12px"><h2>Privacy-preserving inference</h2>
+ <div class="row"><button class="sec" id="typ">1. Escrever diário (ilustrativo)</button>
+ <button class="sec" id="raw">2. Enviar texto cru ao backend (real)</button></div>
+ <pre id="dia">O texto aparece aqui, é destruído no dispositivo, e só as features seguem.</pre>
+ <pre id="feat"></pre></div>
+</main>
+<script>
+const $=id=>document.getElementById(id),tok={};let S=null,timer=null;
+const RANK={ok:0,info:1,watch:2,review_required:3,critical:4};
+const MOOD={ok:['🙂','Dentro do padrão individual','var(--ok)'],info:['😐','Pequeno desvio: só observando','var(--info)'],
+ watch:['😟','Tendência persistente: sugestões de autocuidado','var(--watch)'],
+ review_required:['😰','Revisão humana necessária','var(--rev)'],
+ critical:['🫂','Prioridade máxima: contato humano. Nenhuma ação automática.','var(--crit)']};
+const METRICS=[['sleep_duration_h','Sono (h)'],['fatigue','Fadiga (0–10)'],['cog_rt_ms','Tempo de reação (ms)'],['diary_stress','Estresse no diário (exploratório)']];
+async function api(p,o={},t='admin'){const r=await fetch(p,{...o,headers:{'Content-Type':'application/json',...(tok[t]?{Authorization:'Bearer '+tok[t]}:{})}});
+ let j=null;try{j=await r.json()}catch(e){}return{ok:r.ok,status:r.status,json:j}}
+async function login(email,t){const r=await api('/auth/login',{method:'POST',body:JSON.stringify({email,password:'demo1234'})},t);
+ if(!r.ok)throw 0;tok[t]=r.json.access_token}
+const sevKey=e=>e.priority==='critical'?'critical':e.severity;
+async function init(){try{await login('admin@astrokatu.dev','admin')}catch(e){$('msg').textContent='Login falhou. Rode: python -m app.seed';return}
+ const sc=await api('/admin/scenarios');$('sc').innerHTML=sc.json.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
+ const ov=await api('/clinician/overview');$('ast').innerHTML=ov.json.data.map(a=>`<option value="${a.user_id}">${a.name}</option>`).join('');
+ $('msg').textContent=''}
+function dayList(a,b){const o=[];for(let t=Date.parse(a);t<=Date.parse(b);t+=864e5)o.push(new Date(t).toISOString().slice(0,10));return o}
+$('run').onclick=async()=>{$('run').disabled=true;$('msg').textContent='Simulando…';stop();
+ const r=await api('/admin/simulate',{method:'POST',body:JSON.stringify({scenario:$('sc').value,user_id:$('ast').value,seed:+$('seed').value})});
+ if(!r.ok){$('msg').textContent='Erro '+r.status;$('run').disabled=false;return}
+ const sim=r.json,uid=$('ast').value;
+ const tl=await api(`/clinician/users/${uid}/timeline?days=60&as_of=${sim.period[1]}`);
+ const det=await Promise.all(sim.alerts.map(a=>api('/clinician/alerts/'+a.id)));
+ const life={};det.forEach(d=>{const x=d.json.data;life[x.id]={from:x.explanation.first_seen,to:x.explanation.cleared_on||null}});
+ const dates=dayList(...sim.period),idx={};dates.forEach((d,i)=>idx[d]=i);
+ S={sim,tl:tl.json.data,dates,idx,life,summ:Object.fromEntries(sim.alerts.map(a=>[a.id,a.summary]))};
+ $('sl').max=dates.length-1;$('sl').value=0;$('out').hidden=false;$('msg').textContent=`${dates.length} dias simulados`;
+ $('run').disabled=false;draw(0)};
+function chart(m,label,i){const M=S.tl.metrics[m];if(!M)return`<div class="card"><h2>${label}</h2><span class="mut">sem dados</span></div>`;
+ const W=360,H=125,n=S.dates.length,x=k=>26+(W-34)*k/(n-1);
+ const pts=M.points.filter(q=>q.date in S.idx).map(q=>({k:S.idx[q.date],v:q.value}));
+ const vs=pts.map(q=>q.v);if(M.baseline)vs.push(M.baseline.lower,M.baseline.upper);
+ const lo=Math.min(...vs),hi=Math.max(...vs),pd=((hi-lo)||1)*.12,y=v=>H-16-(H-30)*(v-lo+pd)/((hi-lo)+2*pd);
+ let s=`<svg viewBox="0 0 ${W} ${H}">`;
+ (S.tl.high_workload_days||[]).forEach(d=>{if(d in S.idx)s+=`<rect x="${x(S.idx[d])-3}" y="6" width="6" height="${H-22}" fill="var(--wl)"/>`});
+ if(M.baseline)s+=`<rect x="26" y="${y(M.baseline.upper)}" width="${W-34}" height="${y(M.baseline.lower)-y(M.baseline.upper)}" fill="var(--band)"/>`;
+ S.sim.alert_events.forEach(e=>{const k=S.idx[e.date];if(k!==undefined&&k<=i)s+=`<line x1="${x(k)}" x2="${x(k)}" y1="6" y2="${H-16}" stroke="${MOOD[sevKey(e)][2]}" stroke-width="2" opacity=".8"/>`});
+ const vis=pts.filter(q=>q.k<=i);
+ if(vis.length)s+=`<polyline fill="none" stroke="var(--line)" stroke-width="2" points="${vis.map(q=>x(q.k)+','+y(q.v)).join(' ')}"/><circle cx="${x(vis.at(-1).k)}" cy="${y(vis.at(-1).v)}" r="3.5" fill="var(--line)"/>`;
+ s+=`<text x="2" y="${y(hi)+3}">${hi.toFixed(1)}</text><text x="2" y="${y(lo)+3}">${lo.toFixed(1)}</text><text x="26" y="${H-3}">${S.dates[0].slice(5)}</text><text x="${W-30}" y="${H-3}">${S.dates[n-1].slice(5)}</text></svg>`;
+ return`<div class="card"><h2>${label}</h2>${s}</div>`}
+function draw(i){const d=S.dates[i];$('dl').textContent=`Dia ${i+1}/${S.dates.length} · ${d}`;$('sl').value=i;
+ const evs=S.sim.alert_events.filter(e=>e.date<=d);
+ const act=new Set(Object.keys(S.life).filter(id=>S.life[id].from<=d&&(!S.life[id].to||S.life[id].to>d)).map(Number));
+ let top='ok';evs.forEach(e=>{if(act.has(e.alert_id)&&RANK[sevKey(e)]>RANK[top])top=sevKey(e)});
+ const m=MOOD[top];$('face').textContent=m[0];$('mt').textContent=m[1];$('bd').textContent=top;$('bd').style.background=m[2];
+ const box=$('evs');box.innerHTML='';if(!evs.length)box.innerHTML='<span class="mut">Nenhum alerta. Ótimo sinal.</span>';
+ evs.forEach(e=>{const k=sevKey(e),div=document.createElement('div');div.className='ev';div.style.borderColor=MOOD[k][2];
+  div.textContent=`${e.date} · ${k} · ${e.rule_ids.join(', ')}`;const sm=document.createElement('small');
+  sm.textContent=(S.summ[e.alert_id]||[]).join(' ');div.appendChild(sm);box.appendChild(div)});
+ $('charts').innerHTML=METRICS.map(([m,l])=>chart(m,l,i)).join('')}
+function stop(){clearInterval(timer);timer=null;$('play').textContent='▶ Reproduzir'}
+$('play').onclick=()=>{if(timer)return stop();if(+$('sl').value>=S.dates.length-1)draw(0);$('play').textContent='⏸ Pausar';
+ timer=setInterval(()=>{const n=+$('sl').value+1;if(n>=S.dates.length){stop();return}draw(n)},450)};
+$('sl').oninput=e=>{stop();draw(+e.target.value)};
+const TXT='Hoje dormi mal de novo e senti saudade de casa. O trabalho está pesado, mas tento manter a rotina.';
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+$('typ').onclick=async()=>{const el=$('dia');$('feat').textContent='';el.textContent='';
+ for(const c of TXT){el.textContent+=c;await sleep(22)}await sleep(700);
+ for(let k=TXT.length;k>=0;k-=4){el.textContent='█'.repeat(Math.max(0,k));await sleep(25)}
+ el.textContent='🗑️ Texto destruído no dispositivo. Nada foi enviado.';await sleep(500);
+ let st=.71,ng=.62;if(S){const g=m=>{const p=S.tl.metrics[m]?.points.find(q=>q.date===S.dates[+$('sl').value]);return p&&p.value};st=g('diary_stress')??st;ng=g('diary_neg_emotion')??ng}
+ $('feat').textContent='POST /entries/diary  (o backend recebe só isto; valores ilustrativos)\n'+JSON.stringify({text_hash:'9f86d0…0a08',local_model_version:'minilm-clf-0.3',
+  features:{stress_score:+st.toFixed(2),neg_emotion_score:+ng.toFixed(2),suicidal_ideation_flag:0.02,suicidal_ideation_confidence:'low',text_length:TXT.length,topic_tags:['sono','saudade']}},null,2)};
+$('raw').onclick=async()=>{try{if(!tok.astro)await login('astro1@astrokatu.dev','astro')}catch(e){$('feat').textContent='Login do astronauta falhou (rode o seed).';return}
+ const body={ts:new Date().toISOString(),text_hash:'a'.repeat(64),local_model_version:'demo',consent:true,features:{text:TXT}};
+ const r=await api('/entries/diary',{method:'POST',body:JSON.stringify(body)},'astro');
+ $('dia').textContent='Tentativa de enviar o texto cru dentro de "features"…';
+ $('feat').textContent=`HTTP ${r.status}\n`+JSON.stringify(r.json,null,2)+'\n\n(o texto não é aceito nem devolvido na resposta)'};
+init();
+</script></body></html>

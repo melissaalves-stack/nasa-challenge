@@ -1,0 +1,66 @@
+# Regras explicáveis e configuráveis. Sem eval: cada condição é um objeto.
+#
+# type: trend (padrão) -> condições sobre séries diárias no baseline individual
+#   agg: mean_z | days_z_below | days_z_above | mean | slope
+# type: event           -> condições sobre UM registro do diário (só ideação)
+#
+# REGRA DE OURO: nenhuma regra de tendência dispara com um único evento
+# (sempre exige vários dias). Ideação suicida NUNCA gera ação automática.
+
+- id: sleep_quality_drift
+  severity: info
+  window_days: 5
+  min_days: 5
+  all:
+    - {metric: sleep_duration_h, agg: days_z_below, z: -1.0, min_count: 4}
+    - {metric: sleep_duration_h, agg: mean_z, op: "<", value: -1.2}
+  explanation: "Sono um pouco abaixo do padrão individual em 4 das últimas 5 noites."
+
+- id: sleep_persistent_poor
+  severity: watch
+  window_days: 3
+  min_days: 3
+  all:
+    - {metric: sleep_duration_h, agg: days_z_below, z: -1.5, min_count: 3}
+    - {metric: sleep_efficiency, agg: mean_z, op: "<", value: -1.0}
+  explanation: "3 noites seguidas com duração e eficiência de sono abaixo do baseline individual."
+
+- id: integrated_deterioration
+  severity: review_required
+  window_days: 7
+  min_days: 4
+  requires_rules: [sleep_persistent_poor]
+  all:
+    - {metric: fatigue, agg: days_z_above, z: 1.0, min_count: 4}
+    - {metric: cog_rt_ms, agg: days_z_above, z: 1.0, min_count: 3}
+  explanation: "Sono ruim persistente + fadiga elevada + queda de desempenho cognitivo (tempo de reação)."
+
+- id: diary_high_stress_trend
+  severity: watch
+  window_days: 7
+  min_days: 5
+  all:
+    - {metric: diary_stress, agg: slope, op: ">", value: 0.05}
+    - {metric: diary_stress, agg: mean, op: ">", value: 0.65}
+  explanation: "Tendência crescente de estresse nos registros do diário (últimos 7 dias)."
+
+# Sinal fraco: vai para o clínico como "watch", sem prioridade crítica.
+- id: diary_possible_marker
+  type: event
+  severity: watch
+  window_days: 1
+  all:
+    - {field: suicidal_ideation_flag, op: ">=", value: 0.3}
+    - {field: suicidal_ideation_confidence, op: "==", value: low}
+  explanation: "Possível marcador de risco com baixa confiança do modelo local. Sugere acompanhamento."
+
+- id: diary_suicidal_marker
+  type: event
+  severity: review_required
+  priority: critical
+  auto_action: false
+  window_days: 1
+  all:
+    - {field: suicidal_ideation_flag, op: ">", value: 0.5}
+    - {field: suicidal_ideation_confidence, op: "!=", value: low}
+  explanation: "Marcador explícito no diário. Requer revisão humana imediata; nenhuma ação automática."
